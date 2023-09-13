@@ -692,5 +692,7 @@ Route::middleware(["mid_res"])
         // Route::put('/edit_bank_info/{bankId}', 'App\Http\Controllers\BankController@update')->middleware('user_auth');
         Route::post('/edit_bank_info/{id}', 'App\Http\Controllers\BankController@update')->middleware('user_auth');
         Route::get('/getUserBankListbyUserId/{user_id}', 'App\Http\Controllers\BankController@getUserBankListbyUserId')->middleware('user_auth');
+        Route::post('/user-send-request-admin', 'App\Http\Controllers\Api\NotificationUserController@sendRequest')->middleware('user_auth');
+        Route::post('/admin-approve-post-status', 'App\Http\Controllers\Api\User\Community\MoPostController@adminApprovedPost')->middleware('user_auth');
 
     });

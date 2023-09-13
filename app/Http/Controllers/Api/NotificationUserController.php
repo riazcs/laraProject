@@ -263,4 +263,18 @@ class NotificationUserController extends Controller
             'data' => $dataRes
         ]);
     }
+
+    public function sendRequest(Request $request)
+    {
+        $user = \User::where('is_admin', 1)->first();
+        $res = \Notification::send($user, new \Post($request->post));
+
+        return ResponseUtils::json([
+            'code' => Response::HTTP_OK,
+            'success' => true,
+            'msg_code' => MsgCode::SUCCESS[0],
+            'msg' => MsgCode::SUCCESS[1],
+            'data' => $res
+        ]);
+    }
 }

@@ -16,6 +16,7 @@ use App\Helper\ParamUtils;
 use App\Helper\StatusMoPostDefineCode;
 use App\Helper\StatusMotelDefineCode;
 use App\Models\LastSeenMoPost;
+use App\Models\Post;
 use App\Models\User;
 use App\Models\ViewerPost;
 use Illuminate\Http\Response;
@@ -74,7 +75,7 @@ class MoPostController extends Controller
                     ['min_money', '<=', request('money_to')],
                     ['money', '<=', request('money_to')]
                 ]);
-                $query->orderBy('money','desc')->get();
+                $query->orderBy('money', 'desc')->get();
             })
             ->when(request('sex') != null, function ($query) {
                 $query->where('sex', request('sex'));
@@ -972,6 +973,32 @@ class MoPostController extends Controller
             'msg_code' => MsgCode::SUCCESS[0],
             'msg' => MsgCode::SUCCESS[1],
             'data' => $listMoPost,
+        ]);
+    }
+
+    public function adminApprovedPost(Request $request)
+    {
+
+        $post = Post::where('id', $request->postId)->first();
+        if ($post == null) {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_NOT_FOUND,
+                'success' => false,
+                'msg_code' => MsgCode::NO_POST_EXISTS[0],
+                'msg' => MsgCode::NO_POST_EXISTS[1],
+            ]);
+        }
+
+        $res = $post->update([
+            'status' => 1
+        ]);
+
+        return ResponseUtils::json([
+            'code' => Response::HTTP_OK,
+            'success' => true,
+            'msg_code' => MsgCode::SUCCESS[0],
+            'msg' => MsgCode::SUCCESS[1],
+            'data' => $res,
         ]);
     }
 }
