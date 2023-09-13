@@ -102,7 +102,7 @@ class WallentTransactionAdminReviewController extends Controller
             'success' => true,
             'msg_code' => MsgCode::SUCCESS[0],
             'msg' => MsgCode::SUCCESS[1],
-            'data' =>([$monthWiseTotal]),
+            'data' =>$monthWiseTotal,
         ], 200);
     }
 
@@ -119,7 +119,11 @@ class WallentTransactionAdminReviewController extends Controller
             }
         }
 
-        return $monthWiseTotal;
+        $arrayOfMonthWiseTotalObject = array_map(function ($key, $value) {
+            return [$key => $value];
+        }, array_keys($monthWiseTotal), $monthWiseTotal);
+
+        return $arrayOfMonthWiseTotalObject;
 
     }
 
