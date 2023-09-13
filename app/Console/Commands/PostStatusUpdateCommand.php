@@ -49,13 +49,15 @@ class PostStatusUpdateCommand extends Command
         foreach ($postsToHide as $post) {
             $post->update(['status' => 1]);
 
-            // Send notification to the poster
-            $poster = $post->user; // Assuming a user relationship on the Post model
+            $poster = $post->user;
             $notification = new \Notification([
                 'user_id' => $poster->id,
                 'message' => 'Your post has been hidden due to inactivity. You can display it again.',
             ]);
             $notification->save();
+            if (!$post->status) {
+                $post->delete();
+            }
         }
 
         $threeWeeks = Carbon::now()->subWeeks(3);
@@ -74,6 +76,9 @@ class PostStatusUpdateCommand extends Command
                 'message' => 'Your post has been deleted due to time expired.',
             ]);
             $notification->save();
+            if (!$post->status) {
+                $post->delete();
+            }
         }
     }
 }
