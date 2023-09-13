@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Post;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -55,6 +56,8 @@ class PostStatusUpdateCommand extends Command
                 'message' => 'Your post has been hidden due to inactivity. You can display it again.',
             ]);
             $notification->save();
+            $user = User::where('is_admin', 1)->first();
+            \Notification::send($user, new Post($post));
         }
 
         $threeWeeks = Carbon::now()->subWeeks(3);
