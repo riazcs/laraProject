@@ -1,0 +1,20 @@
+[
+  {
+    "bank_code": "BIDV",
+    "bank_short_name": "BIDV",
+    "bank_full_name": "Ngân hàng Đầu tư và Phát triển Việt Nam",
+    "bank_icon": null
+  },
+  {
+    "bank_code": "Vietinbank",
+    "bank_short_name": "Vietinbank",
+    "bank_full_name": "Ngân hàng công thương Việt Nam",
+    "bank_icon": null
+  },
+  {
+    "bank_code": "VCB",
+    "bank_short_name": "Vietcombank",
+    "bank_full_name": "Ngân hàng TMCP Ngoại Thương",
+    "bank_icon": null
+  }
+]
