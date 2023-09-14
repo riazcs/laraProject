@@ -131,6 +131,10 @@ class UserMessageController extends Controller
                 $query->search($request->search);
             })
             ->paginate($limit);
+
+        if ($listPerson->first()) {
+            $listPerson->first()->is_my_last_message = 1;
+        }
               
         return ResponseUtils::json([
             'code' => 200,
