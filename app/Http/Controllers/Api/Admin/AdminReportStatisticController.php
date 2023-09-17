@@ -4013,4 +4013,199 @@ class AdminReportStatisticController extends Controller
             'data' => $dataChart
         ]);
     }
+
+
+    public function getDidKycUser(Request $request)
+    {
+        $dateFrom = $request->date_from;
+        $dateTo = $request->date_to;
+
+        if ($dateFrom != null || $dateTo != null) {
+            if (
+                !(Helper::validateDate($dateFrom, 'Y-m') && Helper::validateDate($dateTo, 'Y-m')) &&
+                !(Helper::validateDate($dateFrom, 'Y-m-d') && Helper::validateDate($dateTo, 'Y-m-d'))
+            ) {
+                return ResponseUtils::json([
+                    'code' => Response::HTTP_BAD_REQUEST,
+                    'success' => false,
+                    'msg_code' => MsgCode::INVALID_DATETIME_QUERY[0],
+                    'msg' => MsgCode::INVALID_DATETIME_QUERY[1],
+                ]);
+            } else {
+                if (Helper::validateDate($dateFrom, 'Y-m')) {
+                    $dateFrom = new DateTime($dateFrom . '-01' . ' 00:00:01');
+                    $dateTo = new DateTime($dateTo . '-' . date("t", strtotime($dateTo)) . ' 23:59:59');
+                } else {
+                    $dateFrom = new DateTime($dateFrom . ' 00:00:01');
+                    $dateTo = new DateTime($dateTo . ' 23:59:59');
+                }
+            }
+        } else {
+            $dateFrom = Helper::getTimeNowDateTime()->format('Y-m-d 00:00:01');
+            $dateTo = Helper::getTimeNowDateTime()->format('Y-m-d 23:59:59');
+        }
+
+
+        $charts = [];
+        //Config
+        $carbon = Carbon::now('Asia/Ho_Chi_Minh');
+        $date1 = $carbon->parse($dateFrom);
+        $date2 = $carbon->parse($dateTo);
+        $date1 = $carbon->parse($dateFrom);
+        $date2 = $carbon->parse($dateTo);
+
+        $potentials = PotentialUser::when($dateFrom != null && $dateTo != null, function ($query) use ($dateFrom, $dateTo) {
+            $query->where('created_at', '<=', $dateTo);
+            $query->where('created_at', '>=', $dateFrom);
+        })
+            ->whereNotIn('status', [StatusHistoryPotentialUserDefineCode::HIDDEN, StatusHistoryPotentialUserDefineCode::CONSULTING]);
+
+        //Đặt time charts
+        $type = 'month';
+        $date2Compare = clone $date2;
+
+        if ($date2Compare->subDays(2) <= $date1) {
+            $type = 'hour';
+        } else 
+        if ($date2Compare->subMonths(2) < $date1) {
+            $type = 'day';
+        } else 
+        if ($date2Compare->subMonths(24) < $date1) {
+            $type = 'month';
+        }
+        if ($date2->year - $date1->year > 2) {
+            return new Exception(MsgCode::GREAT_TIME[1]);;
+        }
+        if ($type == 'hour') {
+            for ($i = $date1; $i <= $date2; $i->addHours(1)) {
+                $charts[$i->format('Y-m-d H:00:00')] = [
+                    'time' => $i->format('Y-m-d H:00:00'),
+                    'total_users_registered' => 0,
+                    'total_users_did_kyc' => 0,
+                    'total_users_didnot_kyc' => 0,
+                ];
+            }
+
+            $potentials = $potentials->select(
+                DB::raw('YEAR(created_at) as created_year'),
+                DB::raw('MONTH(created_at) as created_month'),
+                DB::raw('DAY(created_at) as created_day'),
+                DB::raw('HOUR(created_at) as created_hour'),
+                'status',
+                DB::raw('count(*) as total')
+            )
+                ->groupBy('created_year', 'created_month', 'created_day', 'created_hour', 'status');
+        }
+
+        if ($type == 'day') {
+            for ($i = $date1; $i <= $date2; $i->addDays(1)) {
+                $charts[$i->format('Y-m-d')] = [
+                    'time' => $i->format('Y-m-d'),
+                    'total_users_registered' => 0,
+                    'total_users_did_kyc' => 0,
+                    'total_users_didnot_kyc' => 0,
+                ];
+            }
+
+            $potentials = $potentials->select(
+                DB::raw('YEAR(created_at) as created_year'),
+                DB::raw('MONTH(created_at) as created_month'),
+                DB::raw('DAY(created_at) as created_day'),
+                'status',
+                DB::raw('count(*) as total')
+            )
+                ->groupBy('created_year', 'created_month', 'created_day', 'status');
+        }
+
+        if ($type == 'month') {
+            for ($i = $date1; $i <= $date2; $i->addMonths(1)) {
+                $charts[$i->format('Y-m')] = [
+                    'time' => $i->format('Y-m-d'),
+                    'total_users_registered' => 0,
+                    'total_users_did_kyc' => 0,
+                    'total_users_didnot_kyc' => 0,
+                ];
+            }
+
+            $potentials = $potentials->select(
+                DB::raw('YEAR(created_at) as created_year'),
+                DB::raw('MONTH(created_at) as created_month'),
+                'status',
+                DB::raw('count(*) as total')
+            )
+                ->groupBy('created_year', 'created_month', 'status');
+        }
+        $potentials = $potentials->get();
+        foreach ($charts as $key => $chart) {
+            $chartDatetime = new Datetime($chart['time']);
+            foreach ($potentials as $potential) {
+                if ($type == 'hour') {
+                    $dateCreatedAt = new Datetime($potential->created_year . '-' . $potential->created_month . '-' . $potential->created_day . ' ' . $potential->created_hour . ':00:00');
+                }
+                if ($type == 'day') {
+                    $dateCreatedAt = new Datetime($potential->created_year . '-' . $potential->created_month . '-' . $potential->created_day);
+                }
+                if ($type == 'month') {
+                    $dateCreatedAt = new Datetime($potential->created_year . '-' . $potential->created_month);
+                }
+                if (
+                    $type == 'month' &&
+                    $chartDatetime->format('Y-m') == $dateCreatedAt->format('Y-m')
+                ) {
+                    $charts[$key]['time'] = $chartDatetime->format('Y-m-d');
+
+                    if ($dateCreatedAt->format('Y-m') == $chartDatetime->format('Y-m') || $dateCreatedAt->format('Y-m') == $chartDatetime->format('Y-m')) {
+                        $charts[$key]['total_users_registered'] = ($charts[$key]["total_users_registered"] ?? 0) + ($potential->total);
+                    }
+                    $charts[$key]['total_users_did_kyc'] = $potential->status == StatusHistoryPotentialUserDefineCode::PROGRESSING ? ($charts[$key]["total_users_did_kyc"] ?? 0) + ($potential->total) : ($charts[$key]["total_users_did_kyc"] ?? 0);
+                    $charts[$key]['total_users_didnot_kyc'] = $potential->status == StatusHistoryPotentialUserDefineCode::COMPLETED ? ($charts[$key]["total_users_didnot_kyc"] ?? 0) + ($potential->total) : ($charts[$key]["total_users_didnot_kyc"] ?? 0);
+                } else if (
+                    $type == 'hour' &&
+                    $chartDatetime->format('Y-m-d H:00:00') == $dateCreatedAt->format('Y-m-d H:00:00')
+                ) {
+                    if ($dateCreatedAt->format('Y-m-d H:00:00') == $chartDatetime->format('Y-m-d H:00:00') || $dateCreatedAt->format('Y-m-d H:00:00') == $chartDatetime->format('Y-m-d H:00:00')) {
+                        $charts[$key]['total_users_registered'] = ($charts[$key]["total_users_registered"] ?? 0) + ($potential->total);
+                    }
+
+                    $charts[$key]['total_users_did_kyc'] = $potential->status == StatusHistoryPotentialUserDefineCode::PROGRESSING ? ($charts[$key]["total_users_did_kyc"] ?? 0) + ($potential->total) : ($charts[$key]["total_users_did_kyc"] ?? 0);
+                    $charts[$key]['total_users_didnot_kyc'] = $potential->status == StatusHistoryPotentialUserDefineCode::COMPLETED ? ($charts[$key]["total_users_didnot_kyc"] ?? 0) + ($potential->total) : ($charts[$key]["total_users_didnot_kyc"] ?? 0);
+                } else if (
+                    $key == $dateCreatedAt->format('Y-m-d') &&
+                    $type == 'day'
+                ) {
+                    if ($dateCreatedAt->format('Y-m-d') == $key || $dateCreatedAt->format('Y-m-d') == $key) {
+                        $charts[$key]['total_users_registered'] = ($charts[$key]["total_users_registered"] ?? 0) + ($potential->total);
+                    }
+                    $charts[$key]['total_users_did_kyc'] = $potential->status == StatusHistoryPotentialUserDefineCode::PROGRESSING ? ($charts[$key]["total_users_did_kyc"] ?? 0) + ($potential->total) : ($charts[$key]["total_users_did_kyc"] ?? 0);
+                    $charts[$key]['total_users_didnot_kyc'] = $potential->status == StatusHistoryPotentialUserDefineCode::COMPLETED ? ($charts[$key]["total_users_didnot_kyc"] ?? 0) + ($potential->total) : ($charts[$key]["total_users_didnot_kyc"] ?? 0);
+                }
+            }
+        }
+        $newArr = [];
+        foreach ($charts as $chart) {
+            array_push($newArr, $chart);
+        }
+
+        $dataChart = [
+            'charts' => $newArr,
+            'type_chart' => $type,
+            'total_users_registered' => 0,
+            'total_users_did_kyc' => 0,
+            'total_users_didnot_kyc' => 0,
+        ];
+
+        foreach ($charts as $chart) {
+            $dataChart['total_users_registered'] += $chart['total_users_registered'];
+            $dataChart['total_users_did_kyc'] += $chart['total_users_did_kyc'];
+            $dataChart['total_users_didnot_kyc'] += $chart['total_users_didnot_kyc'];
+        }
+
+        return ResponseUtils::json([
+            'code' => Response::HTTP_OK,
+            'success' => true,
+            'msg_code' => MsgCode::SUCCESS[0],
+            'msg' => MsgCode::SUCCESS[1],
+            'data' => $dataChart
+        ]);
+    }
 }
