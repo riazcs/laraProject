@@ -22,6 +22,7 @@ class CreateTowerMotelsTable extends Migration
             $table->foreign('motel_id')->references('id')->on('motels')->onDelete('cascade');
             $table->integer('status')->nullable();
             $table->integer('is_room')->nullable();
+            $table->boolen('is_room_hidden')->nullable();
 
             $table->timestamps();
         });
