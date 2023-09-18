@@ -173,7 +173,7 @@ class TowerMotelController extends Controller
     // Tower Room -> Hidden or Unhidden 
     public function updateTowerByRoom(Request $request)
     {
-        $TowerMotel_is_room = Tower::where('motel_id', $request->motel_id)->first();
+        $TowerMotel_is_room = Motel::where('id', $request->id)->first();
         if ($TowerMotel_is_room == null) {
             return ResponseUtils::json([
                 'code' => Response::HTTP_BAD_REQUEST,
