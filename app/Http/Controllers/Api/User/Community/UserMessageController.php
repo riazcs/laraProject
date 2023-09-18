@@ -132,9 +132,15 @@ class UserMessageController extends Controller
             })
             ->paginate($limit);
 
-        $is_my_last_message = collect($listPerson)->map(function ($per) use ($request) {
-            return $request->user->id == $per->user_id ? 1 : 0;
-        })->contains(1);
+        // $is_my_last_message = collect($listPerson)->map(function ($per) use ($request) {
+        //     return $request->user->id == $per->user_id ? 1 : 0;
+        // })->contains(1);
+        $is_my_last_message = null;
+        foreach ($listPerson as $message) {
+            if ($is_my_last_message == 1) {
+                $message->parent_id == $request->userId;
+            }
+        }
         return ResponseUtils::json([
             'code' => 200,
             'msg_code' => MsgCode::SUCCESS[0],
