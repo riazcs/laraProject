@@ -132,10 +132,6 @@ class UserMessageController extends Controller
             })
             ->paginate($limit);
 
-        if ($listPerson->first()) {
-            $listPerson->first()->is_my_last_message = 1;
-        }
-              
         $is_my_last_message = collect($listPerson)->map(function ($per) use ($request) {
             return $request->user->id == $per->user_id ? 1 : 0;
         })->contains(1);
