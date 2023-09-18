@@ -137,8 +137,8 @@ class UserMessageController extends Controller
         // })->contains(1);
         $is_my_last_message = null;
         foreach ($listPerson as $message) {
-            if ($is_my_last_message == 1) {
-                $message->parent_id == $request->userId;
+            if ($message->parent_id == $request->userId) {
+                $is_my_last_message = 1;
             }
         }
         return ResponseUtils::json([
