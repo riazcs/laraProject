@@ -32,6 +32,6 @@ class ServiceSell extends BaseModel
 
     public function getTotalViewsAttribute()
     {
-        return DB::table('service_sells')->where('id', $this->id)->count();
+        return DB::table('viewer_posts')->where('mo_post_id', $this->id)->count();
     }
 }
