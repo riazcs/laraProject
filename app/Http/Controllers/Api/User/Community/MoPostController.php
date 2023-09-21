@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\User\Community;
 use App\Helper\AccountRankDefineCode;
 use App\Helper\HostRankDefineCode;
 use App\Helper\MotelUtils;
+use App\Helper\NotiUserDefineCode;
 use App\Helper\Place;
 use App\Helper\ResponseUtils;
 use App\Http\Controllers\Controller;
@@ -15,6 +16,8 @@ use Illuminate\Http\Request;
 use App\Helper\ParamUtils;
 use App\Helper\StatusMoPostDefineCode;
 use App\Helper\StatusMotelDefineCode;
+use App\Helper\TypeFCM;
+use App\Jobs\NotificationAdminJob;
 use App\Models\LastSeenMoPost;
 use App\Models\Post;
 use App\Models\User;
@@ -926,7 +929,16 @@ class MoPostController extends Controller
             "percent_commission" => $request->percent_commission,
         ]);
 
-
+        if ($request->user != null && $modelPostExists->status == StatusMoPostDefineCode::PROCESSING) {
+            NotificationAdminJob::dispatch(
+                null,
+                "Thông báo bài đăng mới",
+                'Có bài đăng mới cần duyệt từ chủ nhà ' . $request->user->name,
+                TypeFCM::NEW_MO_POST,
+                NotiUserDefineCode::USER_IS_ADMIN,
+                $modelPostExists->id,
+            );
+        }
         return ResponseUtils::json([
             'code' => 200,
             'success' => true,
