@@ -29,4 +29,9 @@ class ServiceSell extends BaseModel
     {
         return json_decode($value);
     }
+
+    public function getTotalViewsAttribute()
+    {
+        return DB::table('service_sells')->where('id', $this->id)->count();
+    }
 }
