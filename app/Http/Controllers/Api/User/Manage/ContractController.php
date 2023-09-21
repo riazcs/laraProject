@@ -130,7 +130,7 @@ class ContractController extends Controller
         } catch (\Throwable $th) {
         }
 
-
+        $towerId = Tower::where('tower_name',  'like', '%' . $request->tower_name . '%')->first();
         $all = Contract::where(function ($query) use ($request) {
             if ($request->user->is_admin != true) {
                 $query->where('contracts.user_id', $request->user->id)->orWhere(function ($q) use ($request) {
@@ -165,6 +165,9 @@ class ContractController extends Controller
             })
             ->when($dateTo != null, function ($query) use ($dateTo) {
                 $query->where('contracts.created_at', '<=', $dateTo);
+            })
+            ->when($towerId != null, function ($query) use ($towerId) {
+                $query->where('contracts.tower_id', '=', $towerId);
             })
             ->when($request->search != null, function ($query) {
                 $query->join('user_contracts', 'contracts.id', '=', 'user_contracts.contract_id');
