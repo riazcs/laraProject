@@ -15,8 +15,8 @@ class MakeViewerServicesMigration extends Migration
     {
         Schema::create('viewer_services', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('mo_post_id')->unsigned()->index();
-            $table->foreign('mo_post_id')->references('id')->on('mo_posts')->cascadeOnDelete();
+            $table->unsignedBigInteger('service_sell_id')->unsigned()->index();
+            $table->foreign('service_id')->references('id')->on('services')->cascadeOnDelete();
             $table->unsignedBigInteger('user_id')->unsigned()->index();
             $table->timestamps();
         });
