@@ -8,6 +8,9 @@ use App\Helper\ResponseUtils;
 use App\Http\Controllers\Controller;
 use App\Models\MsgCode;
 use App\Models\NotificationUser;
+use App\Models\Post;
+use App\Models\User;
+use App\Notifications\SendNotificationAdminPostApprove;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -266,15 +269,17 @@ class NotificationUserController extends Controller
 
     public function sendRequest(Request $request)
     {
-        $user = \User::where('is_admin', 1)->first();
-        $res = \Notification::send($user, new \Post($request->post));
-
+        $to = User::where('is_admin', 1)->first();
+        $fromUser = auth()->user();
+        if ($fromUser && $to) {
+            $fromUser['notification_type'] = 'post_approve';
+            $to->notify(new SendNotificationAdminPostApprove($fromUser, $request->postId));
+        }
         return ResponseUtils::json([
             'code' => Response::HTTP_OK,
             'success' => true,
             'msg_code' => MsgCode::SUCCESS[0],
             'msg' => MsgCode::SUCCESS[1],
-            'data' => $res
         ]);
     }
 }

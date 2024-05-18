@@ -169,10 +169,11 @@ class TowerMotelController extends Controller
             'data' => $towerExists,
         ]);
     }
+
     // Tower Room -> Hidden or Unhidden 
     public function updateTowerByRoom(Request $request)
     {
-        $TowerMotel_is_room = TowerMotel::where('id', $request->tower_id)->first();
+        $TowerMotel_is_room = Motel::where('id', $request->id)->first();
         if ($TowerMotel_is_room == null) {
             return ResponseUtils::json([
                 'code' => Response::HTTP_BAD_REQUEST,
@@ -183,7 +184,7 @@ class TowerMotelController extends Controller
         }
 
         $TowerMotel_is_room->update([
-            'status' => $request->status != null ? $request->status : $TowerMotel_is_room->status,
+            'is_room_hidden' => $request->status != null ? $request->status : $TowerMotel_is_room->status,
         ]);
         return ResponseUtils::json([
             'code' => Response::HTTP_OK,

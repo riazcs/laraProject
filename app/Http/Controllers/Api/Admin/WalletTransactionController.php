@@ -1,385 +1,314 @@
 <?php
 
-namespace App\Http\Controllers\Api\Admin;
+namespace App\Http\Controllers\Api\admin;
 
-use App\Helper\Helper;
-use App\Helper\ParamUtils;
-use App\Helper\RenterType;
-use App\Helper\ResponseUtils;
-use App\Helper\StatusContractDefineCode;
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\PaymentMethod\lib\HMACSignature;
-use App\Http\Controllers\PaymentMethod\lib\MessageBuilder;
-use App\Http\Controllers\PaymentMethod\NinePayController;
-use App\Http\Resources\Api\WalletTransaction\WalletTransactionCollection;
-use App\Http\Resources\Api\WalletTransaction\WalletTransactionCollectionDeposit;
-use App\Models\MsgCode;
-use App\Models\User;
-use App\Models\VirtualAccount;
-use App\Models\WalletTransaction;
-use Exception;
 use Illuminate\Http\Request;
+use App\Models\ReportProblem;
+use App\Helper\ResponseUtils;
+use App\Models\MsgCode;
+use App\Helper\Helper;
+use App\Helper\NotiUserDefineCode;
+use App\Helper\ParamUtils;
+use App\Helper\StatusReportProblemDefineCode;
+use App\Helper\TypeFCM;
+use App\Jobs\NotificationUserJob;
+use Carbon\Carbon;
 use Illuminate\Http\Response;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
-class WalletTransactionController extends Controller
+/**
+ * @group  Admin/Báo cáo sự cố
+ *
+ * APIs Báo cáo sự cố
+ */
+class AdminReportProblemController extends Controller
 {
-
-    //get All Wallet Deposit
-    public function getAllWalletDeposit()
+    /**
+     * 
+     * Danh sách báo cáo sự cố
+     * 
+     * @bodyParam date_from date ngày bắt đầu
+     * @bodyParam date_to date ngày kết thúc
+     * 
+     */
+    public function getAll(Request $request)
     {
-        $limit = request('limit') ?: 20;
+        $dateFrom = $request->date_from;
+        $dateTo = $request->date_to;
+        $limit = $request->limit ?: 20;
 
-        $deposits = WalletTransaction::query()
-            ->select([
-                'user_id',
-                'deposit_money',
-                'account_number',
-                'bank_account_holder_name',
-                'bank_name',
-                'deposit_trading_code',
-                'deposit_date_time',
-                'deposit_content',
-                'type',
-                'status',
-            ])
-            ->where('type', WalletTransaction::DEPOSIT)
-            ->paginate($limit);
-
-
-        return response()->json([
-            'code' => 200,
-            'success' => true,
-            'msg_code' => MsgCode::SUCCESS[0],
-            'msg' => MsgCode::SUCCESS[1],
-            'data' => new WalletTransactionCollectionDeposit($deposits),
-        ], 200);
-    }
-
-    //edit Wallet Deposit
-    public function editWalletDeposit($wallet_transaction_id, Request $request)
-    {
-
-        if ($request->deposit_money == null || empty($request->deposit_money)) {
-            return ResponseUtils::json([
-                'code' => Response::HTTP_BAD_REQUEST,
-                'success' => false,
-                'msg_code' => MsgCode::DEPOSIT_MONEY_IS_REQUIRED[0],
-                'msg' => MsgCode::DEPOSIT_MONEY_IS_REQUIRED[1],
-            ]);
-        }
-
-
-        $wallet_transaction = WalletTransaction::where(['id' => $wallet_transaction_id, 'type' => WalletTransaction::DEPOSIT])->first();
-
-        if ($wallet_transaction == null) {
-            return ResponseUtils::json([
-                'code' => Response::HTTP_NOT_FOUND,
-                'success' => false,
-                'msg_code' => MsgCode::NO_TRANSACTION_EXISTS[0],
-                'msg' => MsgCode::NO_TRANSACTION_EXISTS[1],
-            ]);
-        }
-
-        DB::beginTransaction();
-        try {
-            $response = $wallet_transaction->update([
-                "account_number" => $request->account_number ?? $wallet_transaction->account_number,
-                "bank_account_holder_name" => $request->bank_account_holder_name ?? $wallet_transaction->bank_account_holder_name,
-                "bank_name" => $request->bank_name ?? $wallet_transaction->bank_name,
-                "deposit_money" => $request->deposit_money ?? $wallet_transaction->deposit_money,
-                "deposit_trading_code" => $request->deposit_trading_code ?? $wallet_transaction->deposit_trading_code,
-                "deposit_content" => $request->deposit_content ?? $wallet_transaction->deposit_content,
-            ]);
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw new Exception($e->getMessage());
-        }
-
-
-        return ResponseUtils::json([
-            'code' => Response::HTTP_OK,
-            'success' => true,
-            'msg_code' => MsgCode::SUCCESS[0],
-            'msg' => MsgCode::SUCCESS[1],
-            'data' => $wallet_transaction,
-        ]);
-    }
-    //edit Wallet Withdrow
-    public function editWalletWithdrow($wallet_transaction_id, Request $request)
-    {
-        if ($request->withdraw_money == null || empty($request->withdraw_money)) {
-            return ResponseUtils::json([
-                'code' => Response::HTTP_BAD_REQUEST,
-                'success' => false,
-                'msg_code' => MsgCode::WITHDRAW_MONEY_IS_REQUIRED[0],
-                'msg' => MsgCode::WITHDRAW_MONEY_IS_REQUIRED[1],
-            ]);
-        }
-
-        $wallet_transaction = WalletTransaction::where(['id' => $wallet_transaction_id, 'type' => WalletTransaction::WITHDRAW])->first();
-
-        if ($wallet_transaction == null) {
-            return ResponseUtils::json([
-                'code' => Response::HTTP_NOT_FOUND,
-                'success' => false,
-                'msg_code' => MsgCode::NO_TRANSACTION_EXISTS[0],
-                'msg' => MsgCode::NO_TRANSACTION_EXISTS[1],
-            ]);
-        }
-
-        DB::beginTransaction();
-        try {
-            $response = $wallet_transaction->update([
-                "account_number" => $request->account_number ?? $wallet_transaction->account_number,
-                "bank_account_holder_name" => $request->bank_account_holder_name ?? $wallet_transaction->bank_account_holder_name,
-                "bank_name" => $request->bank_name ?? $wallet_transaction->bank_name,
-                "withdraw_money" => $request->withdraw_money ?? $wallet_transaction->withdraw_money,
-                "withdraw_trading_code" => $request->withdraw_trading_code ?? $wallet_transaction->withdraw_trading_code,
-                "withdraw_content" => $request->withdraw_content ?? $wallet_transaction->withdraw_content,
-            ]);
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw new Exception($e->getMessage());
-        }
-
-        return ResponseUtils::json([
-            'code' => Response::HTTP_OK,
-            'success' => true,
-            'msg_code' => MsgCode::SUCCESS[0],
-            'msg' => MsgCode::SUCCESS[1],
-            'data' => $wallet_transaction,
-        ]);
-    }
-
-
-
-    //get All Wallet Withdraws
-    public function getAllWalletWithdraws()
-    {
-        $limit = request('limit') ?: 20;
-
-        $wallet_transactions = WalletTransaction::query()
-            ->where('type', WalletTransaction::WITHDRAW)
-            ->select([
-                'user_id',
-                'withdraw_money',
-                'account_number',
-                'bank_account_holder_name',
-                'bank_name',
-                'withdraw_trading_code',
-                'withdraw_date_time',
-                'withdraw_content',
-                'type',
-                'status',
-            ])
-            ->paginate($limit);
-
-
-        return response()->json([
-            'code' => 200,
-            'success' => true,
-            'msg_code' => MsgCode::SUCCESS[0],
-            'msg' => MsgCode::SUCCESS[1],
-            'data' => new WalletTransactionCollection($wallet_transactions),
-        ], 200);
-    }
-
-    //create Wallet Deposit
-    public function createWalletDeposit(Request $request)
-    {
-        $deposit_money = $request->deposit_money;
-
-        if ($deposit_money == null || empty($deposit_money)) {
-            return ResponseUtils::json([
-                'code' => Response::HTTP_BAD_REQUEST,
-                'success' => false,
-                'msg_code' => MsgCode::DEPOSIT_MONEY_IS_REQUIRED[0],
-                'msg' => MsgCode::DEPOSIT_MONEY_IS_REQUIRED[1],
-            ]);
-        }
-
-        DB::beginTransaction();
-        try {
-            $user_id = $request->user->id;
-            $virtual_account = VirtualAccount::query()
-                ->where('user_id', $user_id)
-                ->first();
-            $ninePayController = new NinePayController();
-
-            if (!$virtual_account) {
-                $ninePayController = new NinePayController();
-
-                $time = time();
-                $virtual_account_param = [
-                    "request_id" => uniqid(),
-                    "uid" => $user_id,
-                    "uname" => $ninePayController::UNAME,
-                    "bank_code" => $request->bank_code,
-                    "request_amount" => $deposit_money,
-                ];
-
-                $message = MessageBuilder::instance()
-                    ->with($time, $ninePayController::END_POINT . '/va/create', 'POST')
-                    ->withParams($virtual_account_param)
-                    ->build();
-
-                $hmacs = new HMACSignature();
-                $signature = $hmacs->sign($message, $ninePayController::MERCHANT_SECRET_KEY);
-
-                $headers = array(
-                    'Date: ' . $time,
-                    'Authorization: Signature Algorithm=HS256,Credential=' . $ninePayController::MERCHANT_KEY . ',SignedHeaders=,Signature=' . $signature
-                );
-
-                $response = $ninePayController->callAPI('POST', $ninePayController::END_POINT . '/va/create', $virtual_account_param, $headers);
-
-                $response_data = json_decode($response);
-
-                if (isset($response_data->status) && ($response_data->status == 5)) {
-                    $virtual_account = VirtualAccount::query()
-                        ->where('user_id', $user_id)
-                        ->create(
-                            array_merge(Arr::only($virtual_account_param, [
-                                'request_id',
-                                'bank_code',
-                                'request_amount',
-                            ]),
-                                [
-                                    'user_id' => $user_id,
-                                    'bank_account_name' => $response_data->data->bank_account_name,
-                                    'bank_account_no' => $response_data->data->bank_account_no,
-                                    'qr_code_url' => $response_data->data->qr_code_url,
-                                ]
-                            ));
-                }
-
-                if(isset($response_data->error_code) && $response_data->error_code == '001'){
+        if ($dateFrom != null || $dateTo != null) {
+            if ($dateFrom != null && $dateTo != null) {
+                if (
+                    !Helper::validateDate($dateFrom, 'Y-m-d')
+                    || !Helper::validateDate($dateTo, 'Y-m-d')
+                ) {
                     return ResponseUtils::json([
-                        'code' => Response::HTTP_CONFLICT,
+                        'code' => 400,
                         'success' => false,
-                        'msg_code' => MsgCode::ALREADY_VIRTUAL_ACCOUNT_EXISTS[0],
-                        'msg' => MsgCode::ALREADY_VIRTUAL_ACCOUNT_EXISTS[1]
+                        'msg_code' => MsgCode::INVALID_DATETIME_QUERY[0],
+                        'msg' => MsgCode::INVALID_DATETIME_QUERY[1],
                     ]);
                 }
-            } else {
-
-                $time = time();
-                $total_amount =  $deposit_money + $virtual_account->request_amount;
-                $virtual_account_param = [
-                    "request_id" => $virtual_account->request_id,
-                    "uid" => $user_id,
-                    "uname" => $ninePayController::UNAME,
-                    "bank_code" => $request->bank_code,
-                    "request_amount" => $total_amount,
-                ];
-
-                $message = MessageBuilder::instance()
-                    ->with($time, $ninePayController::END_POINT . '/va/update', 'POST')
-                    ->withParams($virtual_account_param)
-                    ->build();
-
-                $hmacs = new HMACSignature();
-                $signature = $hmacs->sign($message, NinePayController::MERCHANT_SECRET_KEY);
-
-                $headers = array(
-                    'Date: ' . $time,
-                    'Authorization: Signature Algorithm=HS256,Credential=' . NinePayController::MERCHANT_KEY . ',SignedHeaders=,Signature=' . $signature
-                );
-
-                $response = $ninePayController->callAPI('POST', NinePayController::END_POINT . '/va/update', $virtual_account_param, $headers);
-                $response_data = json_decode($response);
-
-                if(isset($response_data->status) && $response_data->status == 5){
-                    $virtual_account->bank_account_no = $response_data->data->bank_account_no;
-                    $virtual_account->request_amount = $total_amount;
-                    $virtual_account->save();
+            }
+            if ($dateFrom != null) {
+                if (!Helper::validateDate($dateFrom, 'Y-m-d')) {
+                    return ResponseUtils::json([
+                        'code' => 400,
+                        'success' => false,
+                        'msg_code' => MsgCode::INVALID_DATETIME_QUERY[0],
+                        'msg' => MsgCode::INVALID_DATETIME_QUERY[1],
+                    ]);
                 }
             }
-
-
-            if(!$virtual_account){
-                return ResponseUtils::json([
-                    'code' => Response::HTTP_NOT_FOUND,
-                    'success' => false,
-                    'msg_code' => MsgCode::NO_VIRTUAL_ACCOUNT_EXISTS[0],
-                    'msg' => MsgCode::NO_VIRTUAL_ACCOUNT_EXISTS[1]
-                ]);
+            if ($dateTo != null) {
+                if (!Helper::validateDate($dateTo, 'Y-m-d')) {
+                    return ResponseUtils::json([
+                        'code' => 400,
+                        'success' => false,
+                        'msg_code' => MsgCode::INVALID_DATETIME_QUERY[0],
+                        'msg' => MsgCode::INVALID_DATETIME_QUERY[1],
+                    ]);
+                }
             }
-
-            $wallet_transaction_created = WalletTransaction::create([
-                "user_id" => $user_id,
-                "account_number" => $virtual_account->bank_account_no,
-                "bank_account_holder_name" => $virtual_account->bank_account_name,
-                "bank_name" => $virtual_account->bank_code,
-                "deposit_money" => $request->deposit_money,
-                "deposit_trading_code" => Helper::generateTransactionID(),
-                "deposit_date_time" => Helper::getTimeNowString(),
-                "deposit_content" => $request->deposit_content ?? null,
-                "qr_code_url" => $virtual_account->qr_code_url,
-                "type" => WalletTransaction::DEPOSIT,
-            ]);
-
-            if new ipnUrlWebhook {
-
-            }
-            User::query()
-                ->where('id', $request->user->id)
-                ->update([
-                    'golden_coin'=> $request->user->golden_coin + $deposit_money,
-                ]);
-
-            DB::commit();
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw new Exception($e->getMessage());
+            $dateTo = $dateTo . ' 23:59:59';
+            $dateFrom = $dateFrom . ' 00:00:01';
         }
 
+        if (!ParamUtils::checkLimit($limit)) {
+            return ResponseUtils::json([
+                'code' => 400,
+                'success' => false,
+                'msg_code' => MsgCode::INVALID_LIMIT_REQUEST[0],
+                'msg' => MsgCode::INVALID_LIMIT_REQUEST[1],
+            ]);
+        }
+
+
+        $listReportProblem = ReportProblem::join('motels', 'report_problems.motel_id', '=', 'motels.id')
+            ->where(function ($query) use ($request) {
+                if ($request->user->is_admin != true) {
+                    $query->where('motels.user_id', $request->user->id);
+                }
+            })
+            ->orderBy('report_problems.severity', 'asc')
+            ->orderBy('report_problems.created_at', 'desc')
+            ->when($request->user_id != null, function ($query) use ($request) {
+                $query->where('motels.user_id', $request->user_id);
+            })
+            ->when($request->motel_id != null, function ($query) use ($request) {
+                $query->where('report_problems.motel_id', $request->motel_id);
+            })
+            ->when($request->status != null, function ($query) use ($request) {
+                $query->where('report_problems.status', $request->status);
+            })
+            ->when($request->severity != null, function ($query) use ($request) {
+                $query->where('report_problems.severity', $request->severity);
+            })
+            ->when($dateFrom != null || $dateTo != null, function ($query) use ($dateFrom, $dateTo) {
+                if ($dateFrom != null) {
+                    $query->where('report_problems.created_at', '>=', $dateFrom);
+                }
+                if ($dateTo != null) {
+                    $query->where('report_problems.created_at', '<=', $dateTo);
+                }
+            })
+            ->select('report_problems.*')
+            ->paginate($limit);
+
         return ResponseUtils::json([
-            'code' => Response::HTTP_OK,
+            'code' => 200,
             'success' => true,
             'msg_code' => MsgCode::SUCCESS[0],
             'msg' => MsgCode::SUCCESS[1],
-            'data' => $wallet_transaction_created,
+            'data' => $listReportProblem
         ]);
     }
 
-
-    //create Wallet Withdraws
-    public function createWalletWithdraws(Request $request)
+    /**
+     * 
+     * Tạo 1 báo cáo sự cố
+     * 
+     * @bodyParam user_id string Tên
+     * @bodyParam motel_id string Tên
+     * @bodyParam reason string Tên
+     * @bodyParam describe_problem string Tên
+     * @bodyParam status int Trạng thái báo cáo [0: Đang tiến hành, 1: Đã hủy, 2: Đã hoàn thành]
+     * @bodyParam severity int Mức độ nghiêm trọng [0: Thấp 1: Bình thường, 2: Cao ]
+     * @bodyParam images array ảnh sự cố
+     * 
+     */
+    public function create(Request $request)
     {
-        if ($request->withdraw_money == null || empty($request->withdraw_money)) {
+        $images = $request->images ?: [];
+
+        if (!DB::table('motels')->where('id', $request->motel_id)->exists()) {
             return ResponseUtils::json([
                 'code' => Response::HTTP_BAD_REQUEST,
                 'success' => false,
-                'msg_code' => MsgCode::WITHDRAW_MONEY_IS_REQUIRED[0],
-                'msg' => MsgCode::WITHDRAW_MONEY_IS_REQUIRED[1],
+                'msg_code' => MsgCode::NO_MOTEL_EXISTS[0],
+                'msg' => MsgCode::NO_MOTEL_EXISTS[1],
             ]);
         }
 
-        DB::beginTransaction();
-        try {
-            $wallet_transaction_created = WalletTransaction::create([
-                "user_id" => $request->user->id,
-                "account_number" => $request->account_number,
-                "bank_account_holder_name" => $request->bank_account_holder_name,
-                "bank_name" => $request->bank_name,
-
-                "withdraw_money" => $request->withdraw_money,
-                "withdraw_trading_code" => Helper::generateTransactionID(),
-                "withdraw_date_time" => Helper::getTimeNowString(),
-                "withdraw_content" => $request->withdraw_content ?? null,
-                "type" => WalletTransaction::WITHDRAW,
+        if ($request->reason == null || trim($request->reason) == '') {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_BAD_REQUEST,
+                'success' => false,
+                'msg_code' => MsgCode::REASON_CANNOT_EMPTY[0],
+                'msg' => MsgCode::REASON_CANNOT_EMPTY[1],
             ]);
+        }
 
+        if (!empty($images) && !is_array($images)) {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_BAD_REQUEST,
+                'success' => false,
+                'msg_code' => MsgCode::INVALID_IMAGES[0],
+                'msg' => MsgCode::INVALID_IMAGES[1],
+            ]);
+        }
 
-            DB::commit();
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw new Exception($e->getMessage());
+        if (StatusReportProblemDefineCode::getStatusSeverityCode($request->severity) == null) {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_BAD_REQUEST,
+                'success' => false,
+                'msg_code' => MsgCode::INVALID_SEVERITY_STATUS[0],
+                'msg' => MsgCode::INVALID_SEVERITY_STATUS[1],
+            ]);
+        }
+
+        $reportProblemCreate = ReportProblem::create([
+            'user_id' => $request->user->id,
+            'motel_id' => $request->motel_id,
+            'reason' => $request->reason,
+            'describe_problem' => $request->describe_problem,
+            'images' => json_encode($images),
+            'status' => 0,
+            'severity' => $request->severity
+        ]);
+
+        return ResponseUtils::json([
+            'code' => Response::HTTP_OK,
+            'success' => true,
+            'msg_code' => MsgCode::SUCCESS[0],
+            'msg' => MsgCode::SUCCESS[1],
+            'data' => $reportProblemCreate
+        ]);
+    }
+
+    /**
+     * 
+     * Cập nhật 1 báo cáo sự cố
+     * 
+     * @bodyParam reason string Tên
+     * @bodyParam motel_id int
+     * @bodyParam describe_problem string Tên
+     * @bodyParam images array ảnh sự cố
+     * @bodyParam status int Trạng thái báo cáo [0: Đang tiến hành, 1: Đã hủy, 2: Đã hoàn thành]
+     * 
+     */
+    public function update(Request $request)
+    {
+        $reportProblemId = request('report_problem_id');
+        $images = [];
+
+        if (!DB::table('motels')->where('id', $request->motel_id)->exists()) {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_BAD_REQUEST,
+                'success' => false,
+                'msg_code' => MsgCode::NO_MOTEL_EXISTS[0],
+                'msg' => MsgCode::NO_MOTEL_EXISTS[1],
+            ]);
+        }
+
+        if (!DB::table('motels')->where('id', $request->motel_id)->exists()) {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_BAD_REQUEST,
+                'success' => false,
+                'msg_code' => MsgCode::NO_MOTEL_EXISTS[0],
+                'msg' => MsgCode::NO_MOTEL_EXISTS[1],
+            ]);
+        }
+
+        $reportProblemExist = ReportProblem::where([
+            ['id', $reportProblemId],
+            ['motel_id', $request->motel_id]
+        ])->first();
+
+        if ($reportProblemExist == null) {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_BAD_REQUEST,
+                'success' => false,
+                'msg_code' => MsgCode::NO_REPORT_PROBLEM_EXISTS[0],
+                'msg' => MsgCode::NO_REPORT_PROBLEM_EXISTS[1],
+            ]);
+        }
+
+        if ($request->reason == null || trim($request->reason) == '') {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_BAD_REQUEST,
+                'success' => false,
+                'msg_code' => MsgCode::REASON_CANNOT_EMPTY[0],
+                'msg' => MsgCode::REASON_CANNOT_EMPTY[1],
+            ]);
+        }
+
+        if (StatusReportProblemDefineCode::getStatusReportCode($request->status) == null) {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_BAD_REQUEST,
+                'success' => false,
+                'msg_code' => MsgCode::INVALID_REPORT_PROBLEM_STATUS[0],
+                'msg' => MsgCode::INVALID_REPORT_PROBLEM_STATUS[1],
+            ]);
+        }
+
+        if (StatusReportProblemDefineCode::getStatusSeverityCode($request->severity) == null) {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_BAD_REQUEST,
+                'success' => false,
+                'msg_code' => MsgCode::INVALID_SEVERITY_STATUS[0],
+                'msg' => MsgCode::INVALID_SEVERITY_STATUS[1],
+            ]);
+        }
+
+        if (isset($request->images)) {
+            if (!is_array($request->images)) {
+                return ResponseUtils::json([
+                    'code' => Response::HTTP_BAD_REQUEST,
+                    'success' => false,
+                    'msg_code' => MsgCode::INVALID_IMAGES[0],
+                    'msg' => MsgCode::INVALID_IMAGES[1],
+                ]);
+            }
+            $images = $request->images;
+        } else {
+            $images = $reportProblemExist->images;
+        }
+
+        $timeDone = $request->status == StatusReportProblemDefineCode::COMPLETED ? Carbon::now() : $reportProblemExist->time_done;
+
+        $reportProblemExist->update([
+            'reason' => $request->reason ?? $reportProblemExist->reason,
+            'link_video' => $request->link_video ?? $reportProblemExist->link_video,
+            'describe_problem' => $request->describe_problem ?? $reportProblemExist->describe_problem,
+            'images' => json_encode($images),
+            'severity' => ($request->severity) ?? $reportProblemExist->severity,
+            'time_done' => $timeDone,
+            'status' => $request->status ?? $reportProblemExist->status
+        ]);
+
+        // setup notifications
+        if ($request->status == StatusReportProblemDefineCode::COMPLETED) {
+            NotificationUserJob::dispatch(
+                $reportProblemExist->user_id,
+                "Sự cố phòng của bạn đã được giải quyết",
+                'Sự cố phòng của bạn đã được giải quyết ',
+                TypeFCM::REPORT_PROBLEM_DONE,
+                NotiUserDefineCode::USER_NORMAL,
+                $reportProblemExist->id,
+            );
         }
 
         return ResponseUtils::json([
@@ -387,58 +316,71 @@ class WalletTransactionController extends Controller
             'success' => true,
             'msg_code' => MsgCode::SUCCESS[0],
             'msg' => MsgCode::SUCCESS[1],
-            'data' => $wallet_transaction_created,
+            'data' => $reportProblemExist
+        ]);
+    }
+    /**
+     * 
+     * Lấy 1 báo cáo sự cố
+     * 
+     * @urlParam report_problem_id int Mã báo cáo sự cố
+     * 
+     */
+    public function getOne(Request $request)
+    {
+        $reportProblemId = request('report_problem_id');
+        $reportProblemExist = ReportProblem::where([
+            ['id', $reportProblemId]
+        ])->first();
+
+        if (empty($reportProblemExist)) {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_BAD_REQUEST,
+                'success' => false,
+                'msg_code' => MsgCode::NO_REPORT_PROBLEM_EXISTS[0],
+                'msg' => MsgCode::NO_REPORT_PROBLEM_EXISTS[1],
+            ]);
+        }
+
+        return ResponseUtils::json([
+            'code' => Response::HTTP_OK,
+            'success' => true,
+            'msg_code' => MsgCode::SUCCESS[0],
+            'msg' => MsgCode::SUCCESS[1],
+            'data' => $reportProblemExist
         ]);
     }
 
-    // Get All Wallet Deposit by User id
-    public function getAllWalletDepositbyUserId($userId)
+    /**
+     * 
+     * Xóa 1 báo cáo sự cố
+     * 
+     * @urlParam report_problem_id int Mã báo cáo sự cố
+     * 
+     */
+    public function Delete(Request $request)
     {
-        $deposits = WalletTransaction::where('user_id', $userId)->select(
-            'id',
-            'user_id',
-            'deposit_money',
-            'account_number',
-            'bank_account_holder_name',
-            'bank_name',
-            'deposit_trading_code',
-            'deposit_date_time',
-            'deposit_content',
-            'type',
-            'status',
-        )->paginate(10);
-        return response()->json([
-            'code' => 200,
-            'success' => true,
-            'msg_code' => MsgCode::SUCCESS[0],
-            'msg' => MsgCode::SUCCESS[1],
-            // 'data' => $deposits,
-            'data' => new WalletTransactionCollectionDeposit($deposits),
-        ], 200);
-    }
-      // Get All Wallet Withdraw by User id
-    public function getAllWalletWithdrawUserId($userId)
-    {
-        $withdrows = WalletTransaction::where('user_id', $userId)->select(
-            'user_id',
-            'withdraw_money',
-            'account_number',
-            'bank_account_holder_name',
-            'bank_name',
-            'withdraw_trading_code',
-            'withdraw_date_time',
-            'withdraw_content',
-            'type',
-            'status',
-        )->paginate(10);
-        return response()->json([
-            'code' => 200,
-            'success' => true,
-            'msg_code' => MsgCode::SUCCESS[0],
-            'msg' => MsgCode::SUCCESS[1],
-            // 'data' => $withdrows,
-            'data' => new WalletTransactionCollection($withdrows),
-        ], 200);
-    }
+        $reportProblemId = request('report_problem_id');
+        $reportProblemExist = ReportProblem::where([
+            ['id', $reportProblemId]
+        ]);
 
+        if (!$reportProblemExist->exists()) {
+            return ResponseUtils::json([
+                'code' => Response::HTTP_BAD_REQUEST,
+                'success' => false,
+                'msg_code' => MsgCode::NO_REPORT_PROBLEM_EXISTS[0],
+                'msg' => MsgCode::NO_REPORT_PROBLEM_EXISTS[1],
+            ]);
+        }
+
+        $reportProblemExist->delete();
+
+        return ResponseUtils::json([
+            'code' => Response::HTTP_OK,
+            'success' => true,
+            'msg_code' => MsgCode::SUCCESS[0],
+            'msg' => MsgCode::SUCCESS[1]
+        ]);
+    }
 }

@@ -578,6 +578,7 @@ Route::middleware(["mid_res"])
             Route::get('/report_statistic/bills', [AdminReportStatisticController::class, 'getBills'])->middleware('admin_auth', 'permission_admin');
             Route::get('/report_statistic/potential_to_renters', [AdminReportStatisticController::class, 'getPotentialToRenters'])->middleware('admin_auth', 'permission_admin');
             Route::get('/report_statistic/potential_has_motels', [AdminReportStatisticController::class, 'getPotentialHasMotel'])->middleware('admin_auth', 'permission_admin');
+            Route::get('/report_statistic/kyc_user_data', [AdminReportStatisticController::class, 'getDidKycUser'])->middleware('admin_auth', 'permission_admin');
 
             //Report problem 
             Route::get('/report_problem', 'App\Http\Controllers\Api\Admin\AdminReportProblemController@getAll')->middleware('admin_auth', 'permission_admin');

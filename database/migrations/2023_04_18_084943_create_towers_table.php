@@ -91,7 +91,8 @@ class CreateTowersTable extends Migration
             $table->tinyInteger('percent_commission_collaborator')->default(0)->nullable();
             $table->tinyInteger('money_commission_admin')->default(0)->nullable();
             $table->tinyInteger('money_commission_user')->default(0)->nullable();
-
+            $table->boolen('is_room_hidden')->nullable();
+            
             $table->timestamps();
         });
     }
